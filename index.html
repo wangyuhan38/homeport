@@ -1,0 +1,865 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>homeport 一键配置</title>
+<meta name="description" content="填上住宅代理，自动生成 Clash Party / Clash Verge Rev / FlClash / 小火箭配置，让 Claude、Google 等网站固定走住宅 IP。">
+<style>
+  :root {
+    --bg: #f4f5f7; --card: #ffffff; --text: #16181d; --muted: #646a76; --faint: #8b919c; --line: #e3e6eb;
+    --accent: #3355e0; --accent-ink: #ffffff; --accent-soft: #edf1ff; --accent-line: #c9d4ff;
+    --ok: #16803c; --ok-soft: #eaf7ee; --warn: #9a5b00; --warn-soft: #fff6e5; --warn-line: #f5dca8;
+    --err: #c62828; --err-soft: #fdeeee; --code: #f1f3f6; --shadow: 0 1px 2px rgba(16,24,40,.04), 0 4px 16px rgba(16,24,40,.05);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0d0f13; --card: #15181e; --text: #e8eaee; --muted: #9aa1ad; --faint: #6f7682; --line: #262a33;
+      --accent: #7b96ff; --accent-ink: #0d0f13; --accent-soft: #1a2133; --accent-line: #2f3b5c;
+      --ok: #5fd08a; --ok-soft: #13261b; --warn: #f2bf5e; --warn-soft: #2a2213; --warn-line: #4a3a17;
+      --err: #ff8a80; --err-soft: #2c1616; --code: #0f1217; --shadow: none;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.7 -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    -webkit-font-smoothing: antialiased; }
+  main { max-width: 800px; margin: 0 auto; padding: 0 16px 80px; }
+  a { color: var(--accent); }
+  code, pre, input, textarea { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  code { background: var(--code); border: 1px solid var(--line); padding: 0 6px; border-radius: 6px; font-size: 13px; word-break: break-all; }
+  pre { background: var(--code); border: 1px solid var(--line); padding: 12px 14px; border-radius: 10px; overflow: auto;
+    max-height: 260px; font-size: 12px; line-height: 1.55; margin: 8px 0 0; }
+  .hidden { display: none !important; }
+  .muted { color: var(--muted); font-size: 13.5px; }
+
+  /* ---------- 顶部 ---------- */
+  header { padding: 40px 0 8px; }
+  .brand { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; letter-spacing: .2px; color: var(--muted); font-size: 14px; }
+  .brand i { font-style: normal; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 8px;
+    background: var(--accent); color: var(--accent-ink); font-size: 14px; }
+  h1 { font-size: 30px; line-height: 1.3; margin: 14px 0 8px; letter-spacing: -.3px; }
+  .lead { color: var(--muted); margin: 0; font-size: 15.5px; }
+  .badges { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0 0; }
+  .badge { font-size: 12.5px; color: var(--muted); background: var(--card); border: 1px solid var(--line); border-radius: 999px; padding: 3px 11px; }
+  .buy { display: flex; align-items: center; gap: 12px; margin: 20px 0 0; padding: 12px 16px; border-radius: 12px;
+    background: var(--card); border: 1px dashed var(--accent-line); color: var(--text); text-decoration: none; }
+  .buy:hover { border-style: solid; }
+  .buy span:first-child { font-size: 20px; }
+  .buy b { color: var(--accent); }
+  .buy .arrow { margin-left: auto; color: var(--accent); }
+
+  /* ---------- 进度条 ---------- */
+  .stepper { position: sticky; top: 0; z-index: 5; margin: 24px -16px 0; padding: 10px 16px;
+    background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+  .stepper ol { list-style: none; display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 0; padding: 0; }
+  .stepper a { display: flex; align-items: center; gap: 8px; text-decoration: none; color: var(--muted); font-size: 13.5px;
+    padding: 6px 4px; border-top: 3px solid var(--line); white-space: nowrap; overflow: hidden; }
+  .stepper a .n { flex: none; display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%;
+    font-size: 12px; font-weight: 700; background: var(--line); color: var(--muted); }
+  .stepper a.done { border-top-color: var(--ok); color: var(--text); }
+  .stepper a.done .n { background: var(--ok); color: #fff; }
+  .stepper a.done .n::after { content: "✓"; }
+  .stepper a.done .n span { display: none; }
+  @media (max-width: 560px) { .stepper a .t { display: none; } .stepper a { justify-content: center; } }
+
+  /* ---------- 卡片 ---------- */
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 24px; margin: 16px 0; box-shadow: var(--shadow); scroll-margin-top: 64px; }
+  @media (max-width: 560px) { .card { padding: 18px 16px; border-radius: 14px; } }
+  .card > h2 { display: flex; align-items: center; gap: 10px; font-size: 19px; margin: 0 0 4px; }
+  .card > h2 .n { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 9px; flex: none;
+    background: var(--accent-soft); color: var(--accent); font-size: 14px; font-weight: 800; }
+  .card > .desc { color: var(--muted); margin: 0 0 16px; font-size: 14px; }
+  .card.pre { padding: 16px 20px; }
+  .card.pre summary { cursor: pointer; font-weight: 600; list-style: none; display: flex; align-items: center; gap: 8px; }
+  .card.pre summary::-webkit-details-marker { display: none; }
+  .card.pre summary::after { content: "展开"; margin-left: auto; font-size: 13px; color: var(--accent); font-weight: 500; }
+  .card.pre details[open] summary::after { content: "收起"; }
+  .checklist { list-style: none; padding: 0; margin: 12px 0 0; }
+  .checklist li { padding: 8px 0 8px 30px; position: relative; border-top: 1px solid var(--line); font-size: 14px; }
+  .checklist li::before { content: "☐"; position: absolute; left: 4px; top: 7px; color: var(--accent); font-size: 16px; }
+
+  /* ---------- 表单 ---------- */
+  label.f { display: block; font-size: 13px; font-weight: 600; color: var(--muted); margin: 14px 0 6px; }
+  input[type=text], textarea { width: 100%; padding: 11px 13px; border: 1px solid var(--line); border-radius: 10px;
+    background: var(--bg); color: var(--text); font-size: 14.5px; transition: border-color .15s, box-shadow .15s; }
+  input[type=text]:focus, textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
+  @media (max-width: 560px) { .grid { grid-template-columns: 1fr; } }
+  details.more > summary { cursor: pointer; color: var(--accent); font-weight: 600; font-size: 14px; }
+
+  .seg { display: inline-flex; padding: 3px; gap: 3px; background: var(--bg); border: 1px solid var(--line); border-radius: 11px; flex-wrap: wrap; }
+  .seg button, .seg label { border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 14px; font-weight: 600;
+    padding: 7px 16px; border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+  .seg input { position: absolute; opacity: 0; pointer-events: none; }
+  .seg button[aria-pressed="true"], .seg label:has(input:checked) { background: var(--card); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+  .seg.big { display: grid; grid-template-columns: repeat(4, 1fr); width: 100%; }
+  .seg.big button { justify-content: center; padding: 10px 6px; flex-direction: column; gap: 2px; font-size: 13.5px; }
+  .seg.big button .ic { font-size: 20px; line-height: 1.2; }
+  .protoRow { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; margin-top: 14px; }
+  .protoRow .muted { flex: 1; min-width: 200px; }
+
+  .parsed { margin-top: 14px; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  .parsed .head { padding: 10px 14px; font-weight: 600; font-size: 14px; }
+  .parsed.ok .head { background: var(--ok-soft); color: var(--ok); }
+  .parsed.bad .head { background: var(--err-soft); color: var(--err); }
+  .parsed.idle .head { background: var(--bg); color: var(--muted); font-weight: 500; }
+  .parsed dl { display: grid; grid-template-columns: repeat(4, 1fr); margin: 0; }
+  .parsed dl div { padding: 10px 14px; border-top: 1px solid var(--line); min-width: 0; }
+  .parsed dl div + div { border-left: 1px solid var(--line); }
+  .parsed dt { font-size: 12px; color: var(--faint); }
+  .parsed dd { margin: 0; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  @media (max-width: 560px) { .parsed dl { grid-template-columns: 1fr 1fr; } .parsed dl div:nth-child(3) { border-left: 0; } }
+
+  /* ---------- 规则 ---------- */
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { font-size: 12.5px; background: var(--accent-soft); color: var(--accent); border-radius: 999px; padding: 3px 11px; }
+  details.more { margin-top: 14px; }
+  .groups { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+  @media (max-width: 560px) { .groups { grid-template-columns: 1fr; } }
+  .grp { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; cursor: pointer; transition: border-color .15s, background .15s; }
+  .grp:has(input:checked) { border-color: var(--accent-line); background: var(--accent-soft); }
+  .grp input { appearance: none; -webkit-appearance: none; flex: none; width: 36px; height: 21px; margin: 2px 0 0; border-radius: 999px; background: var(--line); position: relative; cursor: pointer; transition: background .15s; }
+  .grp input::after { content: ""; position: absolute; top: 2px; left: 2px; width: 17px; height: 17px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.25); transition: transform .15s; }
+  .grp input:checked { background: var(--accent); }
+  .grp input:checked::after { transform: translateX(15px); }
+  .grp b { display: block; font-size: 14px; }
+  .grp small { color: var(--muted); font-size: 12px; word-break: break-all; line-height: 1.5; display: block; }
+  .tag { font-size: 11px; color: var(--faint); border: 1px solid var(--line); border-radius: 6px; padding: 0 5px; margin-left: 6px; font-weight: 500; }
+
+  /* ---------- 设备 / 软件 ---------- */
+  .apps { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 16px 0 4px; }
+  .apps .muted { margin-right: 2px; }
+  .app { border: 1px solid var(--line); background: var(--card); color: var(--text); font: inherit; font-size: 14px; font-weight: 600;
+    border-radius: 999px; padding: 6px 14px; cursor: pointer; }
+  .app small { font-weight: 500; color: var(--faint); margin-left: 4px; }
+  .app[aria-pressed="true"] { border-color: var(--accent); background: var(--accent); color: var(--accent-ink); }
+  .app[aria-pressed="true"] small { color: inherit; opacity: .8; }
+  .panel { margin-top: 18px; border-top: 1px solid var(--line); padding-top: 18px; }
+  .panel h3 { font-size: 17px; margin: 0 0 2px; }
+  .panel .before { font-size: 13.5px; color: var(--muted); background: var(--bg); border-radius: 10px; padding: 10px 14px; margin: 12px 0 0; }
+  .panel .before b { color: var(--text); }
+
+  ol.steps { list-style: none; counter-reset: s; padding: 0; margin: 16px 0 0; }
+  ol.steps > li { counter-increment: s; position: relative; padding: 0 0 18px 42px; }
+  ol.steps > li::before { content: counter(s); position: absolute; left: 0; top: 0; width: 28px; height: 28px; border-radius: 50%;
+    display: grid; place-items: center; font-weight: 700; font-size: 13.5px; background: var(--card); color: var(--accent); border: 2px solid var(--accent-line); }
+  ol.steps > li::after { content: ""; position: absolute; left: 14px; top: 32px; bottom: 4px; width: 2px; background: var(--line); }
+  ol.steps > li:last-child { padding-bottom: 0; }
+  ol.steps > li:last-child::after { display: none; }
+  ol.steps > li > b:first-child { display: block; font-size: 15px; margin-bottom: 2px; }
+  ol.steps p { margin: 4px 0; }
+  .path { display: inline; font-weight: 600; }
+  .path i { font-style: normal; color: var(--faint); margin: 0 3px; font-weight: 400; }
+
+  .btns { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 2px; }
+  button.btn { cursor: pointer; border: 1px solid transparent; border-radius: 10px; padding: 10px 18px; font: inherit; font-size: 14.5px; font-weight: 700;
+    background: var(--accent); color: var(--accent-ink); transition: filter .15s, transform .05s; }
+  button.btn:hover:not(:disabled) { filter: brightness(1.07); }
+  button.btn:active:not(:disabled) { transform: translateY(1px); }
+  button.btn.ghost { background: var(--card); color: var(--accent); border-color: var(--accent-line); }
+  button.btn.done { background: var(--ok); color: #fff; border-color: transparent; }
+  button.btn:disabled { opacity: .4; cursor: not-allowed; }
+
+  .note { border-radius: 10px; padding: 10px 14px; font-size: 13.5px; margin: 10px 0 0; border: 1px solid; }
+  .note.warn { background: var(--warn-soft); color: var(--warn); border-color: var(--warn-line); }
+  .note.info { background: var(--accent-soft); color: var(--text); border-color: var(--accent-line); }
+  .note b { color: inherit; }
+  .qrbox { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; margin-top: 8px; }
+  #qr { background: #fff; padding: 10px; border-radius: 12px; border: 1px solid var(--line); min-width: 120px; min-height: 120px; display: grid; place-items: center; }
+  #qr img, #qr canvas { display: block; }
+  .kv { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 8px 0 0; font-size: 14px; }
+  .kv dt { color: var(--muted); }
+  .kv dd { margin: 0; }
+
+  /* ---------- 检查 ---------- */
+  .check { display: grid; gap: 10px; }
+  .check > div { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+  .check h4 { margin: 0 0 4px; font-size: 14.5px; }
+  footer { text-align: center; color: var(--faint); font-size: 13px; margin-top: 32px; }
+  #toast { position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 20px); opacity: 0; pointer-events: none;
+    background: var(--text); color: var(--bg); padding: 9px 16px; border-radius: 10px; font-size: 14px; font-weight: 600; transition: all .2s; z-index: 10; }
+  #toast.show { opacity: 1; transform: translate(-50%, 0); }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="brand"><i>⌂</i>homeport</div>
+    <h1>让 Claude、Google 只看到<br>你的一个住宅 IP</h1>
+    <p class="lead">填上住宅代理，选好设备，复制粘贴到你的代理软件里。敏感网站固定走住宅 IP，其他网站照常走机场。</p>
+    <div class="badges">
+      <span class="badge">🔒 全部在你的浏览器里处理，不上传</span>
+      <span class="badge">💻 Mac · Windows · 📱 iPhone · iPad · 安卓</span>
+      <span class="badge"><a href="https://github.com/0xkaka/homeport" target="_blank" rel="noopener">详细教程 / 源码</a></span>
+    </div>
+    <a class="buy" href="https://x.com/0xjackkk/status/2117862295397335283" target="_blank" rel="noopener">
+      <span>🛒</span><span><b>还没有住宅 IP？</b> 看这篇：便宜静态住宅 IP 购买教程</span><span class="arrow">→</span></a>
+  </header>
+
+  <nav class="stepper" aria-label="进度">
+    <ol>
+      <li><a href="#s1" id="st1"><span class="n"><span>1</span></span><span class="t">填住宅代理</span></a></li>
+      <li><a href="#s2" id="st2"><span class="n"><span>2</span></span><span class="t">选网站</span></a></li>
+      <li><a href="#s3" id="st3"><span class="n"><span>3</span></span><span class="t">导入软件</span></a></li>
+      <li><a href="#s4" id="st4"><span class="n"><span>4</span></span><span class="t">检查</span></a></li>
+    </ol>
+  </nav>
+
+  <section class="card pre">
+    <details>
+      <summary>✅ 开始前，先确认这 3 件事</summary>
+      <ul class="checklist">
+        <li><b>有机场，而且现在能正常翻墙。</b>homeport 会借机场的节点当跳板，自动挑最快的那个，<b>任何机场、任何地区的节点都行</b>。</li>
+        <li><b>买好了一条静态住宅代理</b>（HTTP 或 SOCKS5），手里有：地址、端口、用户名、密码。</li>
+        <li><b>装好了代理软件，并且机场订阅已经导入：</b>Mac 用 Clash Party / Clash Verge Rev / 小火箭；Windows 用 Clash Verge Rev / Clash Party；iPhone、iPad 用小火箭；安卓用 FlClash。</li>
+      </ul>
+    </details>
+  </section>
+
+  <!-- ============ 1 ============ -->
+  <section class="card" id="s1">
+    <h2><span class="n">1</span>填写住宅代理信息</h2>
+    <p class="desc">照着服务商后台，把下面四项填上。</p>
+    <div class="grid">
+      <div><label class="f" for="host">地址</label><input type="text" id="host" placeholder="域名，如 p.webshare.io" autocomplete="off" spellcheck="false"></div>
+      <div><label class="f" for="port">端口</label><input type="text" id="port" inputmode="numeric" placeholder="如 80" autocomplete="off"></div>
+      <div><label class="f" for="user">用户名</label><input type="text" id="user" autocomplete="off" spellcheck="false"></div>
+      <div><label class="f" for="pass">密码</label><input type="text" id="pass" autocomplete="off" spellcheck="false"></div>
+    </div>
+    <div class="note info"><b>用 Webshare 的：</b>先在后台代理列表上方把 <b>Connection Method</b> 切到 <b>Backbone Connection</b>（最稳定；别选 Rotating Proxy Endpoint，那个 IP 如果有问题，官方会自动换，换了你要去后台手动获取重新配置才行）。<br>
+      然后照列表填：地址填 <b>Proxy Address</b>（如 <code>p.webshare.io</code>），<b>不是</b> Assigned IP；Assigned IP 是出口 IP，留着最后核对。</div>
+
+    <div class="protoRow">
+      <div class="seg" id="protoBox" role="radiogroup" aria-label="协议">
+        <label><input type="radio" name="proto" value="http" checked>HTTP</label>
+        <label><input type="radio" name="proto" value="socks5">SOCKS5</label>
+      </div>
+      <span class="muted">后台写的是哪个就选哪个；不确定先选 HTTP，不通再换 SOCKS5。</span>
+    </div>
+
+    <div class="parsed idle" id="parsed">
+      <div class="head" id="status">填好四项后，下面的按钮就能用了。</div>
+    </div>
+    <div id="ipWarn" class="note warn hidden"></div>
+
+  </section>
+
+  <!-- ============ 2 ============ -->
+  <section class="card" id="s2">
+    <h2><span class="n">2</span>选哪些网站走住宅 IP</h2>
+    <p class="desc">不懂就保持默认，直接看第 3 步。</p>
+    <div class="chips" id="selSummary"></div>
+    <details class="more" id="ruleBox">
+      <summary>修改 / 添加网站</summary>
+      <div class="groups" id="groups"></div>
+      <label class="f" for="custom">自己加（一行一个域名，<code>example.com</code> 会包含它的所有子域名）</label>
+      <textarea id="custom" rows="3" placeholder="example.com&#10;another.net" spellcheck="false"></textarea>
+      <p class="muted" style="margin:6px 0 0">高级：也可以写整条规则，如 <code>DOMAIN-KEYWORD,openai</code>、<code>IP-CIDR,1.2.3.0/24</code>，策略会自动补上。</p>
+    </details>
+    <p id="ruleStat" class="muted" style="margin:10px 0 0"></p>
+  </section>
+
+  <!-- ============ 3 ============ -->
+  <section class="card" id="s3">
+    <h2><span class="n">3</span>选设备和软件，照着做</h2>
+    <p class="desc">已按你的设备自动选好，不对就手动点。</p>
+    <div class="seg big" role="group" aria-label="设备">
+      <button data-dev="mac"><span class="ic">💻</span>Mac</button>
+      <button data-dev="win"><span class="ic">🪟</span>Windows</button>
+      <button data-dev="ios"><span class="ic">📱</span>iPhone / iPad</button>
+      <button data-dev="android"><span class="ic">🤖</span>安卓</button>
+    </div>
+    <div class="apps" id="apps"></div>
+
+    <!-- Clash Party -->
+    <div class="panel" data-app="party">
+      <h3>Clash Party</h3>
+      <p class="before"><b>开始前：</b>Clash Party 已装好，机场订阅已导入，现在能正常翻墙。</p>
+      <ol class="steps">
+        <li><b>复制脚本</b>
+          <div class="btns"><button class="btn" data-copy="mac">复制脚本</button><button class="btn ghost" data-dl="mac">或下载 homeport.js</button></div></li>
+        <li><b>新建覆写</b>
+          <p>左侧 <span class="path">覆写</span> → 右上角 <span class="path">＋</span> → <span class="path">新建 JavaScript</span>。把编辑框里原有的内容<b>全部删掉</b>，粘贴，保存。</p>
+          <p class="muted">下载了文件的话，也可以在 ＋ 里选「导入」，选 homeport.js。</p></li>
+        <li><b>挂到机场订阅上</b>
+          <p>左侧 <span class="path">订阅管理</span> → 机场订阅卡片右上角 <span class="path">⋯<i>›</i>编辑信息</span> → <span class="path">覆写</span> 里<b>勾选 homeport</b> → 保存。</p>
+          <div class="note warn">这一步最容易漏：不勾选，等于没装。</div></li>
+        <li><b>重启生效</b>
+          <p>左侧 <span class="path">内核设置</span> → 点重启（旋转箭头）。首页代理模式选 <b>规则</b>，<b>系统代理</b> 保持打开。</p>
+          <p class="muted">想让 Claude 桌面版、Claude Code 这类不认系统代理的软件也走：再打开 <b>虚拟网卡（TUN）</b>，第一次会要求授权，点允许。</p></li>
+      </ol>
+      <div class="note info">🪜 <b>跳板 = 你在机场里选的节点。</b>平时怎么选节点照旧，选哪个，住宅代理就经过哪个，网站看到的始终是住宅 IP。只是别选 🏠住宅出口-勿选。</div>
+      <details class="more"><summary>看一眼生成的内容</summary><pre id="pre-mac"></pre></details>
+    </div>
+
+    <!-- Clash Verge Rev -->
+    <div class="panel" data-app="verge">
+      <h3>Clash Verge Rev</h3>
+      <p class="before"><b>开始前：</b>Clash Verge Rev 已装好，机场订阅已导入，现在能正常翻墙。</p>
+      <ol class="steps">
+        <li><b>复制脚本</b>
+          <div class="btns"><button class="btn" data-copy="win">复制脚本</button></div></li>
+        <li><b>打开扩展脚本</b>
+          <p>左侧 <span class="path">订阅</span> → 在你的机场订阅卡片上 <b>右键</b> → <span class="path">扩展脚本</span>。</p>
+          <p class="muted">没有这个菜单？用订阅页里的「全局扩展脚本」卡片 → 右键 → 编辑文件，效果一样。</p></li>
+        <li><b>粘贴并保存</b>
+          <p>把编辑框里原有的内容<b>全部删掉</b>（<span data-os="mac">⌘A</span><span data-os="win">Ctrl+A</span> 全选再删），粘贴刚才复制的脚本 → <b>保存</b>。</p></li>
+        <li><b>让配置生效</b>
+          <p>回到 <span class="path">订阅</span>，在机场订阅卡片上<b>点一下</b>（重新选中一次）。再到 <span class="path">代理</span> 页，顶部模式选 <b>规则</b>。</p></li>
+        <li><b>打开系统代理</b>
+          <p><span class="path">设置</span> → 打开 <b>系统代理</b>（浏览器靠它走代理）。</p>
+          <p class="muted">想让 Claude 桌面版、Claude Code 也走：再打开 <b>虚拟网卡模式（TUN）</b>。第一次会提示安装服务，点安装<span data-os="win">（需要管理员权限）</span>。</p></li>
+      </ol>
+      <div class="note info">🪜 <b>跳板 = 你在机场里选的节点。</b>平时怎么选节点照旧，选哪个，住宅代理就经过哪个，网站看到的始终是住宅 IP。只是别选 🏠住宅出口-勿选。</div>
+      <div class="note info">Clash Verge Rev 的默认端口是 <b>7897</b>（不是 7890），终端检查时用 7897。</div>
+      <details class="more"><summary>看一眼生成的内容</summary><pre id="pre-win"></pre></details>
+    </div>
+
+    <!-- v2rayN -->
+    <div class="panel" data-app="v2rayn">
+      <h3>v2rayN</h3>
+      <div class="note warn"><b>v2rayN 做不到这种分流。</b>它的路由规则只能选「代理 / 直连 / 拦截」三种，没法把 Claude 单独指到住宅节点、再让住宅节点经过机场跳板。</div>
+      <ol class="steps">
+        <li><b>装 Clash Verge Rev</b>
+          <p>去 GitHub 搜 <code>clash-verge-rev</code>，在 Releases 里下载 Windows 安装包（文件名带 <code>x64-setup.exe</code>）安装。</p></li>
+        <li><b>把同一个机场订阅导进去</b>
+          <p>在 v2rayN 的 <span class="path">订阅分组<i>›</i>订阅分组设置</span> 里复制订阅地址；到 Clash Verge Rev 的 <span class="path">订阅</span> 页粘贴 → 导入。</p>
+          <p class="muted">一般机场后台也能直接复制「Clash 订阅」链接，用那个更好。</p></li>
+        <li><b>退出 v2rayN</b>
+          <p>两个软件同时开会抢系统代理，用 Clash Verge Rev 时把 v2rayN 退出。</p></li>
+        <li><b>按 Clash Verge Rev 的步骤做</b>
+          <div class="btns"><button class="btn" data-goapp="verge">切到 Clash Verge Rev 步骤 →</button></div></li>
+      </ol>
+    </div>
+
+    <!-- FlClash -->
+    <div class="panel" data-app="flclash">
+      <h3>FlClash</h3>
+      <p class="before"><b>开始前：</b>FlClash 版本 ≥ 0.8.85，机场订阅已导入，现在能正常翻墙。</p>
+      <ol class="steps">
+        <li><b>复制脚本</b>
+          <div class="btns"><button class="btn" data-copy="android">复制脚本</button></div></li>
+        <li><b>添加脚本</b>
+          <p><span class="path">工具<i>›</i>进阶配置<i>›</i>脚本</span> → 右下 <span class="path">＋</span>。名字填 <code>homeport</code>，内容粘贴，保存。</p></li>
+        <li><b>在订阅里选中脚本</b>
+          <p><span class="path">配置</span> → 机场订阅右侧的 <span class="path">⋮<i>›</i>覆写</span> → 模式选 <b>脚本</b> → 选中 homeport。</p>
+          <div class="note warn">这一步最容易漏：不在订阅里选中脚本，等于没装。</div></li>
+        <li><b>重新连接</b>
+          <p>回 <span class="path">仪表盘</span>，关掉再打开连接。</p></li>
+      </ol>
+      <div class="note info">🪜 <b>跳板 = 你在机场里选的节点。</b>平时怎么选节点照旧，选哪个，住宅代理就经过哪个，网站看到的始终是住宅 IP。只是别选 🏠住宅出口-勿选。</div>
+      <details class="more"><summary>看一眼生成的内容</summary><pre id="pre-android"></pre></details>
+    </div>
+
+    <!-- Shadowrocket -->
+    <div class="panel" data-app="sr">
+      <h3>小火箭 Shadowrocket <span class="muted" data-os="mac">（Mac 版，M 芯片 Mac 才能装）</span></h3>
+      <div class="note warn"><b>全程不要点选 🏠住宅出口-勿选 这个节点。</b>首页选中的一直是你平时用的机场节点。它只给规则用，选中它会让所有网站都走住宅代理。</div>
+      <ol class="steps">
+        <li><b>装规则模块（趁现在网络正常先装）</b>
+          <p>底部 <span class="path">配置<i>›</i>模块</span> → 右上角 <span class="path">＋</span>，新建一个模块，把复制的内容粘贴进去 → 保存。</p>
+          <div class="btns"><button class="btn ghost" data-copy="iosmod">复制模块内容</button></div>
+          <div id="iosCustom" class="hidden">
+            <div class="note info">你改过第 2 步的网站选择，要把模块换成你的版本：模块列表里点开 homeport → 编辑 → 全选删掉 → 粘贴下面的内容 → 保存。以后别点这个模块的「更新」。</div>
+            <div class="btns"><button class="btn" data-copy="iostext">复制我的模块内容</button></div>
+            <details class="more"><summary>看一眼</summary><pre id="pre-ios"></pre></details>
+          </div></li>
+        <li><b>加住宅节点</b>
+          <div data-os="ios">
+            <p><b>方法 A：扫码。</b>用另一台设备打开本页，小火箭首页左上角扫码图标扫下面的码。在手机上看本页的话，点「复制节点链接」再打开小火箭，一般会自动弹出「添加节点」。</p>
+            <div class="qrbox"><div id="qr"></div>
+              <div class="btns"><button class="btn" data-copy="iosnode">复制节点链接</button></div></div>
+          </div>
+          <div data-os="mac">
+            <p><b>方法 A：复制链接。</b>点下面按钮，再切到小火箭，一般会自动弹出「添加节点」。没弹出来就用方法 B。</p>
+            <div class="btns"><button class="btn" data-copy="iosnode">复制节点链接</button></div>
+          </div>
+          <p style="margin-top:12px"><b>方法 B：手动。</b>首页右上角 <span class="path">＋</span>，类型选 <b id="m-type">HTTP</b>，照下面填：</p>
+          <dl class="kv">
+            <dt>地址</dt><dd><code id="m-host">（先填第 1 步）</code></dd>
+            <dt>端口</dt><dd><code id="m-port">-</code></dd>
+            <dt>用户</dt><dd><code id="m-user">-</code></dd>
+            <dt>密码</dt><dd><code id="m-pass">-</code></dd>
+            <dt>备注</dt><dd><code>🏠住宅出口-勿选</code> <button class="btn ghost" style="padding:2px 10px;font-size:13px" data-copy="remark">复制</button></dd>
+          </dl>
+          <div class="note warn">备注必须一字不差（带房子图标），建议点「复制」。加完如果名字前出现<b>橙色圆点</b>，说明被选中了，<b>马上点回机场节点</b>。</div></li>
+        <li><b>设跳板</b>
+          <p>点 🏠住宅出口-勿选 右边的 <span class="path">ⓘ</span> → <span class="path">代理通过</span> → 选一个稳定的机场节点（哪个地区都行）→ 保存。</p>
+          <p class="muted">设好后节点下面显示类似 <code>HTTP / 跳板名 &gt; SHADOWSOCKS</code> 是正常的。测速显示「超时」不代表不能用，以第 4 步的结果为准。</p></li>
+        <li><b>切到配置模式</b>
+          <p>首页 <span class="path">全局路由</span> 选 <b>配置</b>，选中的节点是<b>机场节点</b>，打开开关。</p></li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- ============ 4 ============ -->
+  <section class="card" id="s4">
+    <h2><span class="n">4</span>检查是否成功</h2>
+    <p class="desc">每台设备看到的 IP 都应该<b>一模一样</b>，并且就是你住宅代理的 IP<span id="hostHint"></span>。</p>
+    <div class="check">
+      <div>
+        <h4>🌐 浏览器</h4>
+        <p style="margin:0">打开 <a href="https://ipv4.webshare.io/" target="_blank" rel="noopener">ipv4.webshare.io</a>，页面上只有一行 IP。</p>
+        <p class="muted" data-dev-only="mac win" style="margin:6px 0 0">用 Chrome 的话还要关 QUIC：地址栏打开 <code>chrome://flags/#enable-quic</code> → 选 Disabled → 点 Relaunch。</p>
+      </div>
+      <div data-dev-only="mac win">
+        <h4>⌨️ 终端 / Claude Code</h4>
+        <p style="margin:0" id="termHint"></p>
+        <pre id="termCmd"></pre>
+        <p class="muted" style="margin:6px 0 0">Claude Code 默认不走系统代理：开 TUN，或者按 <a href="https://github.com/0xkaka/homeport#8-claude-code终端chrome-的额外设置" target="_blank" rel="noopener">说明文档第 8 节</a> 设环境变量。</p>
+      </div>
+    </div>
+    <p class="muted" style="margin:14px 0 0">IP 不对？看 <a href="https://github.com/0xkaka/homeport#9-常见问题" target="_blank" rel="noopener">常见问题</a>。</p>
+  </section>
+
+  <footer>homeport · <a href="https://github.com/0xkaka/homeport" target="_blank" rel="noopener">GitHub</a> · 个人备份副本，原作者 0xkaka</footer>
+</main>
+<div id="toast" role="status"></div>
+
+<script>
+var QRCode;!function(){function a(a){this.mode=c.MODE_8BIT_BYTE,this.data=a,this.parsedData=[];for(var b=[],d=0,e=this.data.length;e>d;d++){var f=this.data.charCodeAt(d);f>65536?(b[0]=240|(1835008&f)>>>18,b[1]=128|(258048&f)>>>12,b[2]=128|(4032&f)>>>6,b[3]=128|63&f):f>2048?(b[0]=224|(61440&f)>>>12,b[1]=128|(4032&f)>>>6,b[2]=128|63&f):f>128?(b[0]=192|(1984&f)>>>6,b[1]=128|63&f):b[0]=f,this.parsedData=this.parsedData.concat(b)}this.parsedData.length!=this.data.length&&(this.parsedData.unshift(191),this.parsedData.unshift(187),this.parsedData.unshift(239))}function b(a,b){this.typeNumber=a,this.errorCorrectLevel=b,this.modules=null,this.moduleCount=0,this.dataCache=null,this.dataList=[]}function i(a,b){if(void 0==a.length)throw new Error(a.length+"/"+b);for(var c=0;c<a.length&&0==a[c];)c++;this.num=new Array(a.length-c+b);for(var d=0;d<a.length-c;d++)this.num[d]=a[d+c]}function j(a,b){this.totalCount=a,this.dataCount=b}function k(){this.buffer=[],this.length=0}function m(){return"undefined"!=typeof CanvasRenderingContext2D}function n(){var a=!1,b=navigator.userAgent;return/android/i.test(b)&&(a=!0,aMat=b.toString().match(/android ([0-9]\.[0-9])/i),aMat&&aMat[1]&&(a=parseFloat(aMat[1]))),a}function r(a,b){for(var c=1,e=s(a),f=0,g=l.length;g>=f;f++){var h=0;switch(b){case d.L:h=l[f][0];break;case d.M:h=l[f][1];break;case d.Q:h=l[f][2];break;case d.H:h=l[f][3]}if(h>=e)break;c++}if(c>l.length)throw new Error("Too long data");return c}function s(a){var b=encodeURI(a).toString().replace(/\%[0-9a-fA-F]{2}/g,"a");return b.length+(b.length!=a?3:0)}a.prototype={getLength:function(){return this.parsedData.length},write:function(a){for(var b=0,c=this.parsedData.length;c>b;b++)a.put(this.parsedData[b],8)}},b.prototype={addData:function(b){var c=new a(b);this.dataList.push(c),this.dataCache=null},isDark:function(a,b){if(0>a||this.moduleCount<=a||0>b||this.moduleCount<=b)throw new Error(a+","+b);return this.modules[a][b]},getModuleCount:function(){return this.moduleCount},make:function(){this.makeImpl(!1,this.getBestMaskPattern())},makeImpl:function(a,c){this.moduleCount=4*this.typeNumber+17,this.modules=new Array(this.moduleCount);for(var d=0;d<this.moduleCount;d++){this.modules[d]=new Array(this.moduleCount);for(var e=0;e<this.moduleCount;e++)this.modules[d][e]=null}this.setupPositionProbePattern(0,0),this.setupPositionProbePattern(this.moduleCount-7,0),this.setupPositionProbePattern(0,this.moduleCount-7),this.setupPositionAdjustPattern(),this.setupTimingPattern(),this.setupTypeInfo(a,c),this.typeNumber>=7&&this.setupTypeNumber(a),null==this.dataCache&&(this.dataCache=b.createData(this.typeNumber,this.errorCorrectLevel,this.dataList)),this.mapData(this.dataCache,c)},setupPositionProbePattern:function(a,b){for(var c=-1;7>=c;c++)if(!(-1>=a+c||this.moduleCount<=a+c))for(var d=-1;7>=d;d++)-1>=b+d||this.moduleCount<=b+d||(this.modules[a+c][b+d]=c>=0&&6>=c&&(0==d||6==d)||d>=0&&6>=d&&(0==c||6==c)||c>=2&&4>=c&&d>=2&&4>=d?!0:!1)},getBestMaskPattern:function(){for(var a=0,b=0,c=0;8>c;c++){this.makeImpl(!0,c);var d=f.getLostPoint(this);(0==c||a>d)&&(a=d,b=c)}return b},createMovieClip:function(a,b,c){var d=a.createEmptyMovieClip(b,c),e=1;this.make();for(var f=0;f<this.modules.length;f++)for(var g=f*e,h=0;h<this.modules[f].length;h++){var i=h*e,j=this.modules[f][h];j&&(d.beginFill(0,100),d.moveTo(i,g),d.lineTo(i+e,g),d.lineTo(i+e,g+e),d.lineTo(i,g+e),d.endFill())}return d},setupTimingPattern:function(){for(var a=8;a<this.moduleCount-8;a++)null==this.modules[a][6]&&(this.modules[a][6]=0==a%2);for(var b=8;b<this.moduleCount-8;b++)null==this.modules[6][b]&&(this.modules[6][b]=0==b%2)},setupPositionAdjustPattern:function(){for(var a=f.getPatternPosition(this.typeNumber),b=0;b<a.length;b++)for(var c=0;c<a.length;c++){var d=a[b],e=a[c];if(null==this.modules[d][e])for(var g=-2;2>=g;g++)for(var h=-2;2>=h;h++)this.modules[d+g][e+h]=-2==g||2==g||-2==h||2==h||0==g&&0==h?!0:!1}},setupTypeNumber:function(a){for(var b=f.getBCHTypeNumber(this.typeNumber),c=0;18>c;c++){var d=!a&&1==(1&b>>c);this.modules[Math.floor(c/3)][c%3+this.moduleCount-8-3]=d}for(var c=0;18>c;c++){var d=!a&&1==(1&b>>c);this.modules[c%3+this.moduleCount-8-3][Math.floor(c/3)]=d}},setupTypeInfo:function(a,b){for(var c=this.errorCorrectLevel<<3|b,d=f.getBCHTypeInfo(c),e=0;15>e;e++){var g=!a&&1==(1&d>>e);6>e?this.modules[e][8]=g:8>e?this.modules[e+1][8]=g:this.modules[this.moduleCount-15+e][8]=g}for(var e=0;15>e;e++){var g=!a&&1==(1&d>>e);8>e?this.modules[8][this.moduleCount-e-1]=g:9>e?this.modules[8][15-e-1+1]=g:this.modules[8][15-e-1]=g}this.modules[this.moduleCount-8][8]=!a},mapData:function(a,b){for(var c=-1,d=this.moduleCount-1,e=7,g=0,h=this.moduleCount-1;h>0;h-=2)for(6==h&&h--;;){for(var i=0;2>i;i++)if(null==this.modules[d][h-i]){var j=!1;g<a.length&&(j=1==(1&a[g]>>>e));var k=f.getMask(b,d,h-i);k&&(j=!j),this.modules[d][h-i]=j,e--,-1==e&&(g++,e=7)}if(d+=c,0>d||this.moduleCount<=d){d-=c,c=-c;break}}}},b.PAD0=236,b.PAD1=17,b.createData=function(a,c,d){for(var e=j.getRSBlocks(a,c),g=new k,h=0;h<d.length;h++){var i=d[h];g.put(i.mode,4),g.put(i.getLength(),f.getLengthInBits(i.mode,a)),i.write(g)}for(var l=0,h=0;h<e.length;h++)l+=e[h].dataCount;if(g.getLengthInBits()>8*l)throw new Error("code length overflow. ("+g.getLengthInBits()+">"+8*l+")");for(g.getLengthInBits()+4<=8*l&&g.put(0,4);0!=g.getLengthInBits()%8;)g.putBit(!1);for(;;){if(g.getLengthInBits()>=8*l)break;if(g.put(b.PAD0,8),g.getLengthInBits()>=8*l)break;g.put(b.PAD1,8)}return b.createBytes(g,e)},b.createBytes=function(a,b){for(var c=0,d=0,e=0,g=new Array(b.length),h=new Array(b.length),j=0;j<b.length;j++){var k=b[j].dataCount,l=b[j].totalCount-k;d=Math.max(d,k),e=Math.max(e,l),g[j]=new Array(k);for(var m=0;m<g[j].length;m++)g[j][m]=255&a.buffer[m+c];c+=k;var n=f.getErrorCorrectPolynomial(l),o=new i(g[j],n.getLength()-1),p=o.mod(n);h[j]=new Array(n.getLength()-1);for(var m=0;m<h[j].length;m++){var q=m+p.getLength()-h[j].length;h[j][m]=q>=0?p.get(q):0}}for(var r=0,m=0;m<b.length;m++)r+=b[m].totalCount;for(var s=new Array(r),t=0,m=0;d>m;m++)for(var j=0;j<b.length;j++)m<g[j].length&&(s[t++]=g[j][m]);for(var m=0;e>m;m++)for(var j=0;j<b.length;j++)m<h[j].length&&(s[t++]=h[j][m]);return s};for(var c={MODE_NUMBER:1,MODE_ALPHA_NUM:2,MODE_8BIT_BYTE:4,MODE_KANJI:8},d={L:1,M:0,Q:3,H:2},e={PATTERN000:0,PATTERN001:1,PATTERN010:2,PATTERN011:3,PATTERN100:4,PATTERN101:5,PATTERN110:6,PATTERN111:7},f={PATTERN_POSITION_TABLE:[[],[6,18],[6,22],[6,26],[6,30],[6,34],[6,22,38],[6,24,42],[6,26,46],[6,28,50],[6,30,54],[6,32,58],[6,34,62],[6,26,46,66],[6,26,48,70],[6,26,50,74],[6,30,54,78],[6,30,56,82],[6,30,58,86],[6,34,62,90],[6,28,50,72,94],[6,26,50,74,98],[6,30,54,78,102],[6,28,54,80,106],[6,32,58,84,110],[6,30,58,86,114],[6,34,62,90,118],[6,26,50,74,98,122],[6,30,54,78,102,126],[6,26,52,78,104,130],[6,30,56,82,108,134],[6,34,60,86,112,138],[6,30,58,86,114,142],[6,34,62,90,118,146],[6,30,54,78,102,126,150],[6,24,50,76,102,128,154],[6,28,54,80,106,132,158],[6,32,58,84,110,136,162],[6,26,54,82,110,138,166],[6,30,58,86,114,142,170]],G15:1335,G18:7973,G15_MASK:21522,getBCHTypeInfo:function(a){for(var b=a<<10;f.getBCHDigit(b)-f.getBCHDigit(f.G15)>=0;)b^=f.G15<<f.getBCHDigit(b)-f.getBCHDigit(f.G15);return(a<<10|b)^f.G15_MASK},getBCHTypeNumber:function(a){for(var b=a<<12;f.getBCHDigit(b)-f.getBCHDigit(f.G18)>=0;)b^=f.G18<<f.getBCHDigit(b)-f.getBCHDigit(f.G18);return a<<12|b},getBCHDigit:function(a){for(var b=0;0!=a;)b++,a>>>=1;return b},getPatternPosition:function(a){return f.PATTERN_POSITION_TABLE[a-1]},getMask:function(a,b,c){switch(a){case e.PATTERN000:return 0==(b+c)%2;case e.PATTERN001:return 0==b%2;case e.PATTERN010:return 0==c%3;case e.PATTERN011:return 0==(b+c)%3;case e.PATTERN100:return 0==(Math.floor(b/2)+Math.floor(c/3))%2;case e.PATTERN101:return 0==b*c%2+b*c%3;case e.PATTERN110:return 0==(b*c%2+b*c%3)%2;case e.PATTERN111:return 0==(b*c%3+(b+c)%2)%2;default:throw new Error("bad maskPattern:"+a)}},getErrorCorrectPolynomial:function(a){for(var b=new i([1],0),c=0;a>c;c++)b=b.multiply(new i([1,g.gexp(c)],0));return b},getLengthInBits:function(a,b){if(b>=1&&10>b)switch(a){case c.MODE_NUMBER:return 10;case c.MODE_ALPHA_NUM:return 9;case c.MODE_8BIT_BYTE:return 8;case c.MODE_KANJI:return 8;default:throw new Error("mode:"+a)}else if(27>b)switch(a){case c.MODE_NUMBER:return 12;case c.MODE_ALPHA_NUM:return 11;case c.MODE_8BIT_BYTE:return 16;case c.MODE_KANJI:return 10;default:throw new Error("mode:"+a)}else{if(!(41>b))throw new Error("type:"+b);switch(a){case c.MODE_NUMBER:return 14;case c.MODE_ALPHA_NUM:return 13;case c.MODE_8BIT_BYTE:return 16;case c.MODE_KANJI:return 12;default:throw new Error("mode:"+a)}}},getLostPoint:function(a){for(var b=a.getModuleCount(),c=0,d=0;b>d;d++)for(var e=0;b>e;e++){for(var f=0,g=a.isDark(d,e),h=-1;1>=h;h++)if(!(0>d+h||d+h>=b))for(var i=-1;1>=i;i++)0>e+i||e+i>=b||(0!=h||0!=i)&&g==a.isDark(d+h,e+i)&&f++;f>5&&(c+=3+f-5)}for(var d=0;b-1>d;d++)for(var e=0;b-1>e;e++){var j=0;a.isDark(d,e)&&j++,a.isDark(d+1,e)&&j++,a.isDark(d,e+1)&&j++,a.isDark(d+1,e+1)&&j++,(0==j||4==j)&&(c+=3)}for(var d=0;b>d;d++)for(var e=0;b-6>e;e++)a.isDark(d,e)&&!a.isDark(d,e+1)&&a.isDark(d,e+2)&&a.isDark(d,e+3)&&a.isDark(d,e+4)&&!a.isDark(d,e+5)&&a.isDark(d,e+6)&&(c+=40);for(var e=0;b>e;e++)for(var d=0;b-6>d;d++)a.isDark(d,e)&&!a.isDark(d+1,e)&&a.isDark(d+2,e)&&a.isDark(d+3,e)&&a.isDark(d+4,e)&&!a.isDark(d+5,e)&&a.isDark(d+6,e)&&(c+=40);for(var k=0,e=0;b>e;e++)for(var d=0;b>d;d++)a.isDark(d,e)&&k++;var l=Math.abs(100*k/b/b-50)/5;return c+=10*l}},g={glog:function(a){if(1>a)throw new Error("glog("+a+")");return g.LOG_TABLE[a]},gexp:function(a){for(;0>a;)a+=255;for(;a>=256;)a-=255;return g.EXP_TABLE[a]},EXP_TABLE:new Array(256),LOG_TABLE:new Array(256)},h=0;8>h;h++)g.EXP_TABLE[h]=1<<h;for(var h=8;256>h;h++)g.EXP_TABLE[h]=g.EXP_TABLE[h-4]^g.EXP_TABLE[h-5]^g.EXP_TABLE[h-6]^g.EXP_TABLE[h-8];for(var h=0;255>h;h++)g.LOG_TABLE[g.EXP_TABLE[h]]=h;i.prototype={get:function(a){return this.num[a]},getLength:function(){return this.num.length},multiply:function(a){for(var b=new Array(this.getLength()+a.getLength()-1),c=0;c<this.getLength();c++)for(var d=0;d<a.getLength();d++)b[c+d]^=g.gexp(g.glog(this.get(c))+g.glog(a.get(d)));return new i(b,0)},mod:function(a){if(this.getLength()-a.getLength()<0)return this;for(var b=g.glog(this.get(0))-g.glog(a.get(0)),c=new Array(this.getLength()),d=0;d<this.getLength();d++)c[d]=this.get(d);for(var d=0;d<a.getLength();d++)c[d]^=g.gexp(g.glog(a.get(d))+b);return new i(c,0).mod(a)}},j.RS_BLOCK_TABLE=[[1,26,19],[1,26,16],[1,26,13],[1,26,9],[1,44,34],[1,44,28],[1,44,22],[1,44,16],[1,70,55],[1,70,44],[2,35,17],[2,35,13],[1,100,80],[2,50,32],[2,50,24],[4,25,9],[1,134,108],[2,67,43],[2,33,15,2,34,16],[2,33,11,2,34,12],[2,86,68],[4,43,27],[4,43,19],[4,43,15],[2,98,78],[4,49,31],[2,32,14,4,33,15],[4,39,13,1,40,14],[2,121,97],[2,60,38,2,61,39],[4,40,18,2,41,19],[4,40,14,2,41,15],[2,146,116],[3,58,36,2,59,37],[4,36,16,4,37,17],[4,36,12,4,37,13],[2,86,68,2,87,69],[4,69,43,1,70,44],[6,43,19,2,44,20],[6,43,15,2,44,16],[4,101,81],[1,80,50,4,81,51],[4,50,22,4,51,23],[3,36,12,8,37,13],[2,116,92,2,117,93],[6,58,36,2,59,37],[4,46,20,6,47,21],[7,42,14,4,43,15],[4,133,107],[8,59,37,1,60,38],[8,44,20,4,45,21],[12,33,11,4,34,12],[3,145,115,1,146,116],[4,64,40,5,65,41],[11,36,16,5,37,17],[11,36,12,5,37,13],[5,109,87,1,110,88],[5,65,41,5,66,42],[5,54,24,7,55,25],[11,36,12],[5,122,98,1,123,99],[7,73,45,3,74,46],[15,43,19,2,44,20],[3,45,15,13,46,16],[1,135,107,5,136,108],[10,74,46,1,75,47],[1,50,22,15,51,23],[2,42,14,17,43,15],[5,150,120,1,151,121],[9,69,43,4,70,44],[17,50,22,1,51,23],[2,42,14,19,43,15],[3,141,113,4,142,114],[3,70,44,11,71,45],[17,47,21,4,48,22],[9,39,13,16,40,14],[3,135,107,5,136,108],[3,67,41,13,68,42],[15,54,24,5,55,25],[15,43,15,10,44,16],[4,144,116,4,145,117],[17,68,42],[17,50,22,6,51,23],[19,46,16,6,47,17],[2,139,111,7,140,112],[17,74,46],[7,54,24,16,55,25],[34,37,13],[4,151,121,5,152,122],[4,75,47,14,76,48],[11,54,24,14,55,25],[16,45,15,14,46,16],[6,147,117,4,148,118],[6,73,45,14,74,46],[11,54,24,16,55,25],[30,46,16,2,47,17],[8,132,106,4,133,107],[8,75,47,13,76,48],[7,54,24,22,55,25],[22,45,15,13,46,16],[10,142,114,2,143,115],[19,74,46,4,75,47],[28,50,22,6,51,23],[33,46,16,4,47,17],[8,152,122,4,153,123],[22,73,45,3,74,46],[8,53,23,26,54,24],[12,45,15,28,46,16],[3,147,117,10,148,118],[3,73,45,23,74,46],[4,54,24,31,55,25],[11,45,15,31,46,16],[7,146,116,7,147,117],[21,73,45,7,74,46],[1,53,23,37,54,24],[19,45,15,26,46,16],[5,145,115,10,146,116],[19,75,47,10,76,48],[15,54,24,25,55,25],[23,45,15,25,46,16],[13,145,115,3,146,116],[2,74,46,29,75,47],[42,54,24,1,55,25],[23,45,15,28,46,16],[17,145,115],[10,74,46,23,75,47],[10,54,24,35,55,25],[19,45,15,35,46,16],[17,145,115,1,146,116],[14,74,46,21,75,47],[29,54,24,19,55,25],[11,45,15,46,46,16],[13,145,115,6,146,116],[14,74,46,23,75,47],[44,54,24,7,55,25],[59,46,16,1,47,17],[12,151,121,7,152,122],[12,75,47,26,76,48],[39,54,24,14,55,25],[22,45,15,41,46,16],[6,151,121,14,152,122],[6,75,47,34,76,48],[46,54,24,10,55,25],[2,45,15,64,46,16],[17,152,122,4,153,123],[29,74,46,14,75,47],[49,54,24,10,55,25],[24,45,15,46,46,16],[4,152,122,18,153,123],[13,74,46,32,75,47],[48,54,24,14,55,25],[42,45,15,32,46,16],[20,147,117,4,148,118],[40,75,47,7,76,48],[43,54,24,22,55,25],[10,45,15,67,46,16],[19,148,118,6,149,119],[18,75,47,31,76,48],[34,54,24,34,55,25],[20,45,15,61,46,16]],j.getRSBlocks=function(a,b){var c=j.getRsBlockTable(a,b);if(void 0==c)throw new Error("bad rs block @ typeNumber:"+a+"/errorCorrectLevel:"+b);for(var d=c.length/3,e=[],f=0;d>f;f++)for(var g=c[3*f+0],h=c[3*f+1],i=c[3*f+2],k=0;g>k;k++)e.push(new j(h,i));return e},j.getRsBlockTable=function(a,b){switch(b){case d.L:return j.RS_BLOCK_TABLE[4*(a-1)+0];case d.M:return j.RS_BLOCK_TABLE[4*(a-1)+1];case d.Q:return j.RS_BLOCK_TABLE[4*(a-1)+2];case d.H:return j.RS_BLOCK_TABLE[4*(a-1)+3];default:return void 0}},k.prototype={get:function(a){var b=Math.floor(a/8);return 1==(1&this.buffer[b]>>>7-a%8)},put:function(a,b){for(var c=0;b>c;c++)this.putBit(1==(1&a>>>b-c-1))},getLengthInBits:function(){return this.length},putBit:function(a){var b=Math.floor(this.length/8);this.buffer.length<=b&&this.buffer.push(0),a&&(this.buffer[b]|=128>>>this.length%8),this.length++}};var l=[[17,14,11,7],[32,26,20,14],[53,42,32,24],[78,62,46,34],[106,84,60,44],[134,106,74,58],[154,122,86,64],[192,152,108,84],[230,180,130,98],[271,213,151,119],[321,251,177,137],[367,287,203,155],[425,331,241,177],[458,362,258,194],[520,412,292,220],[586,450,322,250],[644,504,364,280],[718,560,394,310],[792,624,442,338],[858,666,482,382],[929,711,509,403],[1003,779,565,439],[1091,857,611,461],[1171,911,661,511],[1273,997,715,535],[1367,1059,751,593],[1465,1125,805,625],[1528,1190,868,658],[1628,1264,908,698],[1732,1370,982,742],[1840,1452,1030,790],[1952,1538,1112,842],[2068,1628,1168,898],[2188,1722,1228,958],[2303,1809,1283,983],[2431,1911,1351,1051],[2563,1989,1423,1093],[2699,2099,1499,1139],[2809,2213,1579,1219],[2953,2331,1663,1273]],o=function(){var a=function(a,b){this._el=a,this._htOption=b};return a.prototype.draw=function(a){function g(a,b){var c=document.createElementNS("http://www.w3.org/2000/svg",a);for(var d in b)b.hasOwnProperty(d)&&c.setAttribute(d,b[d]);return c}var b=this._htOption,c=this._el,d=a.getModuleCount();Math.floor(b.width/d),Math.floor(b.height/d),this.clear();var h=g("svg",{viewBox:"0 0 "+String(d)+" "+String(d),width:"100%",height:"100%",fill:b.colorLight});h.setAttributeNS("http://www.w3.org/2000/xmlns/","xmlns:xlink","http://www.w3.org/1999/xlink"),c.appendChild(h),h.appendChild(g("rect",{fill:b.colorDark,width:"1",height:"1",id:"template"}));for(var i=0;d>i;i++)for(var j=0;d>j;j++)if(a.isDark(i,j)){var k=g("use",{x:String(i),y:String(j)});k.setAttributeNS("http://www.w3.org/1999/xlink","href","#template"),h.appendChild(k)}},a.prototype.clear=function(){for(;this._el.hasChildNodes();)this._el.removeChild(this._el.lastChild)},a}(),p="svg"===document.documentElement.tagName.toLowerCase(),q=p?o:m()?function(){function a(){this._elImage.src=this._elCanvas.toDataURL("image/png"),this._elImage.style.display="block",this._elCanvas.style.display="none"}function d(a,b){var c=this;if(c._fFail=b,c._fSuccess=a,null===c._bSupportDataURI){var d=document.createElement("img"),e=function(){c._bSupportDataURI=!1,c._fFail&&_fFail.call(c)},f=function(){c._bSupportDataURI=!0,c._fSuccess&&c._fSuccess.call(c)};return d.onabort=e,d.onerror=e,d.onload=f,d.src="data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAUAAAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO9TXL0Y4OHwAAAABJRU5ErkJggg==",void 0}c._bSupportDataURI===!0&&c._fSuccess?c._fSuccess.call(c):c._bSupportDataURI===!1&&c._fFail&&c._fFail.call(c)}if(this._android&&this._android<=2.1){var b=1/window.devicePixelRatio,c=CanvasRenderingContext2D.prototype.drawImage;CanvasRenderingContext2D.prototype.drawImage=function(a,d,e,f,g,h,i,j){if("nodeName"in a&&/img/i.test(a.nodeName))for(var l=arguments.length-1;l>=1;l--)arguments[l]=arguments[l]*b;else"undefined"==typeof j&&(arguments[1]*=b,arguments[2]*=b,arguments[3]*=b,arguments[4]*=b);c.apply(this,arguments)}}var e=function(a,b){this._bIsPainted=!1,this._android=n(),this._htOption=b,this._elCanvas=document.createElement("canvas"),this._elCanvas.width=b.width,this._elCanvas.height=b.height,a.appendChild(this._elCanvas),this._el=a,this._oContext=this._elCanvas.getContext("2d"),this._bIsPainted=!1,this._elImage=document.createElement("img"),this._elImage.style.display="none",this._el.appendChild(this._elImage),this._bSupportDataURI=null};return e.prototype.draw=function(a){var b=this._elImage,c=this._oContext,d=this._htOption,e=a.getModuleCount(),f=d.width/e,g=d.height/e,h=Math.round(f),i=Math.round(g);b.style.display="none",this.clear();for(var j=0;e>j;j++)for(var k=0;e>k;k++){var l=a.isDark(j,k),m=k*f,n=j*g;c.strokeStyle=l?d.colorDark:d.colorLight,c.lineWidth=1,c.fillStyle=l?d.colorDark:d.colorLight,c.fillRect(m,n,f,g),c.strokeRect(Math.floor(m)+.5,Math.floor(n)+.5,h,i),c.strokeRect(Math.ceil(m)-.5,Math.ceil(n)-.5,h,i)}this._bIsPainted=!0},e.prototype.makeImage=function(){this._bIsPainted&&d.call(this,a)},e.prototype.isPainted=function(){return this._bIsPainted},e.prototype.clear=function(){this._oContext.clearRect(0,0,this._elCanvas.width,this._elCanvas.height),this._bIsPainted=!1},e.prototype.round=function(a){return a?Math.floor(1e3*a)/1e3:a},e}():function(){var a=function(a,b){this._el=a,this._htOption=b};return a.prototype.draw=function(a){for(var b=this._htOption,c=this._el,d=a.getModuleCount(),e=Math.floor(b.width/d),f=Math.floor(b.height/d),g=['<table style="border:0;border-collapse:collapse;">'],h=0;d>h;h++){g.push("<tr>");for(var i=0;d>i;i++)g.push('<td style="border:0;border-collapse:collapse;padding:0;margin:0;width:'+e+"px;height:"+f+"px;background-color:"+(a.isDark(h,i)?b.colorDark:b.colorLight)+';"></td>');g.push("</tr>")}g.push("</table>"),c.innerHTML=g.join("");var j=c.childNodes[0],k=(b.width-j.offsetWidth)/2,l=(b.height-j.offsetHeight)/2;k>0&&l>0&&(j.style.margin=l+"px "+k+"px")},a.prototype.clear=function(){this._el.innerHTML=""},a}();QRCode=function(a,b){if(this._htOption={width:256,height:256,typeNumber:4,colorDark:"#000000",colorLight:"#ffffff",correctLevel:d.H},"string"==typeof b&&(b={text:b}),b)for(var c in b)this._htOption[c]=b[c];"string"==typeof a&&(a=document.getElementById(a)),this._android=n(),this._el=a,this._oQRCode=null,this._oDrawing=new q(this._el,this._htOption),this._htOption.text&&this.makeCode(this._htOption.text)},QRCode.prototype.makeCode=function(a){this._oQRCode=new b(r(a,this._htOption.correctLevel),this._htOption.correctLevel),this._oQRCode.addData(a),this._oQRCode.make(),this._el.title=a,this._oDrawing.draw(this._oQRCode),this.makeImage()},QRCode.prototype.makeImage=function(){"function"==typeof this._oDrawing.makeImage&&(!this._android||this._android>=3)&&this._oDrawing.makeImage()},QRCode.prototype.clear=function(){this._oDrawing.clear()},QRCode.CorrectLevel=d}();
+</script>
+<script type="text/plain" id="tpl-android">
+// homeport · FlClash 覆写脚本（FlClash ≥ 0.8.85）
+//
+// 作用：Claude、Google、支付和风控相关域名统一走住宅出口 🏠住宅出口-勿选。
+// 链路：本机 → 你在机场里选的节点（跳板）→ 🏠住宅出口-勿选（住宅代理）→ 目标站点。
+//
+// 使用前把下面 HOME 里的 server / port / username / password 换成自己的住宅代理。
+// 改完以后别再从 URL 重新导入，否则会被占位符覆盖。
+//
+// 跳板跟随机场的“主选择组”（你平时点节点的那个组）：你选哪个节点，住宅代理就经过哪个节点。
+// 主选择组 = 订阅里最后一条 MATCH 规则指向的组；找不到就用第一个 select 组；
+// 再找不到才退回 HP_Relay（机场全部节点自动测速）。
+// 想固定直连住宅代理：把 FORCE_RELAY 改成 "DIRECT"。
+//
+// Clash Verge Rev / Clash Party 也用这份脚本，只要把下面 main 那一行改成
+// function main(config, profileName) {，最后一行 }; 改成 }。
+
+const HOME = {
+  server: "<HOST>",
+  port: 0,
+  username: "<USERNAME>",
+  password: "<PASSWORD>",
+};
+
+const EXIT = "🏠住宅出口-勿选";
+const RELAY = "HP_Relay";
+const FORCE_RELAY = ""; // 留空 = 跟随主选择组；填 "DIRECT" 或某个组名 / 节点名 = 固定用它
+const RELAY_EXCLUDE = "(?i)住宅出口|到期|过期|剩余|官网|网址|失联|故障|重置|套餐|Expire|Traffic|Reset|^(DIRECT|REJECT|COMPATIBLE|PASS)$";
+
+const SUFFIX = [
+  // Claude / Anthropic
+  "claude.ai", "claude.com", "clau.de", "anthropic.com",
+  "claudeusercontent.com", "claudemcpcontent.com", "modelcontextprotocol.io",
+  // 监控 / 风控 / 验证 / 支付
+  "sentry.io", "datadoghq.com", "growthbook.io", "usefathom.com", "segment.io",
+  "siftscience.com", "hcaptcha.com", "challenges.cloudflare.com",
+  "intercom.io", "intercomcdn.com",
+  "stripe.com", "stripe.network", "stripecdn.com", "withpersona.com",
+  // Google（含 Gmail、Google Pay）
+  "google.com", "googleapis.com", "gstatic.com", "googleusercontent.com",
+  "gmail.com", "recaptcha.net",
+  // 出口 IP 检测
+  "webshare.io", "ipinfo.io",
+];
+
+const KEYWORD = ["anthropic", "claude", "browser-intake"];
+
+const PROCESS = [
+  "com.anthropic.claude",                 // Claude 安卓 App
+  "com.android.vending",                  // Google Play
+  "com.google.android.apps.walletnfcrel", // Google Wallet
+];
+
+// 找机场的主选择组：最后一条 MATCH 规则指向的组 → 第一个 select 组
+function mainGroup(config) {
+  const groups = config["proxy-groups"] || [];
+  const names = new Set(groups.map((g) => g.name));
+  const rules = config.rules || [];
+  for (let i = rules.length - 1; i >= 0; i--) {
+    const p = String(rules[i]).split(",").map((x) => x.trim());
+    if (/^(MATCH|FINAL)$/i.test(p[0]) && names.has(p[1])) return p[1];
+  }
+  const sel = groups.find((g) => g.type === "select");
+  return sel ? sel.name : "";
+}
+
+const main = (config) => {
+  config.proxies = config.proxies || [];
+  config["proxy-groups"] = config["proxy-groups"] || [];
+  const groups = config["proxy-groups"];
+
+  // 机场里用 include-all 自动收节点的组，把住宅出口排除掉，防止被选中后死循环
+  for (const g of groups) {
+    if (g["include-all"] || g["include-all-proxies"]) {
+      g["exclude-filter"] = g["exclude-filter"] ? g["exclude-filter"] + "|住宅出口" : "住宅出口";
+    }
+  }
+
+  // 跳板：跟随主选择组；找不到才建一个自动测速组
+  let relay = FORCE_RELAY || mainGroup(config);
+  if (!relay) {
+    groups.push({
+      name: RELAY,
+      type: "url-test",
+      hidden: true,
+      url: "https://www.gstatic.com/generate_204",
+      interval: 300,
+      tolerance: 50,
+      lazy: false,
+      "include-all": true,
+      "exclude-filter": RELAY_EXCLUDE,
+    });
+    relay = RELAY;
+  }
+
+  config.proxies.push({
+    name: EXIT,
+    type: "http",
+    ...HOME,
+    "dialer-proxy": relay,
+  });
+
+  const rules = [
+    // Anthropic IPv6 段经住宅代理会 502，先拒掉，客户端会自动回落 IPv4
+    "IP-CIDR6,2607:6bc0::/48,REJECT,no-resolve",
+    "IP-CIDR6,2607:6bc0:11::/48,REJECT,no-resolve",
+    ...SUFFIX.map((d) => `DOMAIN-SUFFIX,${d},${EXIT}`),
+    ...KEYWORD.map((k) => `DOMAIN-KEYWORD,${k},${EXIT}`),
+    `IP-CIDR,160.79.104.0/21,${EXIT},no-resolve`,
+    `IP-ASN,399358,${EXIT},no-resolve`,
+    ...PROCESS.map((p) => `PROCESS-NAME,${p},${EXIT}`),
+  ];
+  config.rules = rules.concat(config.rules || []);
+  return config;
+};
+</script>
+<script type="text/plain" id="tpl-module">
+#!name=homeport
+#!desc=Claude、Google、支付与风控域名走备注为 🏠住宅出口-勿选 的住宅节点
+
+[Rule]
+# Anthropic IPv6 段经住宅代理会 502，先拒掉，客户端会自动回落 IPv4
+IP-CIDR6,2607:6bc0::/48,REJECT,no-resolve
+IP-CIDR6,2607:6bc0:11::/48,REJECT,no-resolve
+
+# Claude / Anthropic
+DOMAIN-SUFFIX,claude.ai,🏠住宅出口-勿选
+DOMAIN-SUFFIX,claude.com,🏠住宅出口-勿选
+DOMAIN-SUFFIX,clau.de,🏠住宅出口-勿选
+DOMAIN-SUFFIX,anthropic.com,🏠住宅出口-勿选
+DOMAIN-SUFFIX,claudeusercontent.com,🏠住宅出口-勿选
+DOMAIN-SUFFIX,claudemcpcontent.com,🏠住宅出口-勿选
+DOMAIN-SUFFIX,modelcontextprotocol.io,🏠住宅出口-勿选
+DOMAIN-KEYWORD,anthropic,🏠住宅出口-勿选
+DOMAIN-KEYWORD,claude,🏠住宅出口-勿选
+IP-CIDR,160.79.104.0/21,🏠住宅出口-勿选,no-resolve
+IP-ASN,399358,🏠住宅出口-勿选,no-resolve
+
+# 监控 / 风控 / 验证 / 支付
+DOMAIN-SUFFIX,sentry.io,🏠住宅出口-勿选
+DOMAIN-KEYWORD,browser-intake,🏠住宅出口-勿选
+DOMAIN-SUFFIX,datadoghq.com,🏠住宅出口-勿选
+DOMAIN-SUFFIX,growthbook.io,🏠住宅出口-勿选
+DOMAIN-SUFFIX,usefathom.com,🏠住宅出口-勿选
+DOMAIN-SUFFIX,segment.io,🏠住宅出口-勿选
+DOMAIN-SUFFIX,siftscience.com,🏠住宅出口-勿选
+DOMAIN-SUFFIX,hcaptcha.com,🏠住宅出口-勿选
+DOMAIN-SUFFIX,challenges.cloudflare.com,🏠住宅出口-勿选
+DOMAIN-SUFFIX,intercom.io,🏠住宅出口-勿选
+DOMAIN-SUFFIX,intercomcdn.com,🏠住宅出口-勿选
+DOMAIN-SUFFIX,stripe.com,🏠住宅出口-勿选
+DOMAIN-SUFFIX,stripe.network,🏠住宅出口-勿选
+DOMAIN-SUFFIX,stripecdn.com,🏠住宅出口-勿选
+DOMAIN-SUFFIX,withpersona.com,🏠住宅出口-勿选
+
+# Google（含 Gmail、Google Pay）
+DOMAIN-SUFFIX,google.com,🏠住宅出口-勿选
+DOMAIN-SUFFIX,googleapis.com,🏠住宅出口-勿选
+DOMAIN-SUFFIX,gstatic.com,🏠住宅出口-勿选
+DOMAIN-SUFFIX,googleusercontent.com,🏠住宅出口-勿选
+DOMAIN-SUFFIX,gmail.com,🏠住宅出口-勿选
+DOMAIN-SUFFIX,recaptcha.net,🏠住宅出口-勿选
+
+# 出口 IP 检测
+DOMAIN-SUFFIX,webshare.io,🏠住宅出口-勿选
+DOMAIN-SUFFIX,ipinfo.io,🏠住宅出口-勿选
+</script>
+<script>
+const MODULE_URL = document.getElementById("tpl-module").textContent.replace(/^\n+/, "").replace(/\n+$/, "");
+const $ = (id) => document.getElementById(id);
+const tpl = {};
+let cur = null, copiedOnce = false;
+
+tpl.android = document.getElementById("tpl-android").textContent.replace(/^\n+/, "").replace(/\n+$/, "");
+
+const proto = () => document.querySelector("[name=proto]:checked").value;
+
+
+for (const k of ["host", "port", "user", "pass"]) $(k).addEventListener("input", () => render());
+document.querySelectorAll("[name=proto]").forEach((r) => r.addEventListener("change", () => {
+  $("host").placeholder = proto() === "socks5" ? "域名或 IP，如 50.2.71.50" : "域名，如 p.webshare.io";
+  render();
+}));
+
+function read() {
+  const v = { proto: proto(), host: $("host").value.trim(), port: $("port").value.trim(), user: $("user").value.trim(), pass: $("pass").value.trim() };
+  if (!v.host || !v.user || !v.pass) return null;
+  if (!/^\d+$/.test(v.port) || +v.port < 1 || +v.port > 65535) return null;
+  return v;
+}
+
+const yq = (s) => JSON.stringify(s); // JSON 字符串同时是合法的 YAML 双引号字符串和 JS 字符串
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const EXIT = "🏠住宅出口-勿选";
+
+// 规则分组。on = 默认是否勾选；rules 里 "S:" 域名后缀，"K:" 关键词，其余为整条规则（不含策略）；
+// android 只对安卓生效（按 App 包名分流）
+const GROUPS = [
+  { id: "claude", name: "Claude / Anthropic", on: true, desc: "claude.ai、anthropic.com、Claude Code、MCP 等",
+    rules: ["S:claude.ai", "S:claude.com", "S:clau.de", "S:anthropic.com", "S:claudeusercontent.com",
+      "S:claudemcpcontent.com", "S:modelcontextprotocol.io", "K:anthropic", "K:claude",
+      "IP-CIDR,160.79.104.0/21,@,no-resolve", "IP-ASN,399358,@,no-resolve"],
+    android: ["com.anthropic.claude"] },
+  { id: "risk", name: "监控 / 风控 / 埋点", on: true, desc: "Sentry、Datadog、Sift、Segment、Intercom 等（网站靠它们判断你的 IP）",
+    rules: ["S:sentry.io", "K:browser-intake", "S:datadoghq.com", "S:growthbook.io", "S:usefathom.com",
+      "S:segment.io", "S:siftscience.com", "S:intercom.io", "S:intercomcdn.com"] },
+  { id: "captcha", name: "人机验证", on: true, desc: "hCaptcha、Cloudflare 验证、reCAPTCHA",
+    rules: ["S:hcaptcha.com", "S:challenges.cloudflare.com", "S:recaptcha.net"] },
+  { id: "pay", name: "支付 / 身份认证", on: true, desc: "Stripe、Persona",
+    rules: ["S:stripe.com", "S:stripe.network", "S:stripecdn.com", "S:withpersona.com"] },
+  { id: "google", name: "Google（含 Gmail、Gemini）", on: true, desc: "google.com、googleapis.com、gstatic.com、gmail.com 等",
+    rules: ["S:google.com", "S:googleapis.com", "S:gstatic.com", "S:googleusercontent.com", "S:gmail.com"],
+    android: ["com.android.vending", "com.google.android.apps.walletnfcrel"] },
+  { id: "ipcheck", name: "IP 检测网站", on: true, desc: "webshare.io、ipinfo.io（用来核对出口 IP）",
+    rules: ["S:webshare.io", "S:ipinfo.io"] },
+  { id: "openai", name: "OpenAI / ChatGPT", on: false, desc: "chatgpt.com、openai.com 等",
+    rules: ["S:openai.com", "S:chatgpt.com", "S:oaistatic.com", "S:oaiusercontent.com", "S:sora.com"],
+    android: ["com.openai.chatgpt"] },
+  { id: "x", name: "X（推特）/ Grok", on: false, desc: "x.com、twitter.com、grok.com",
+    rules: ["S:x.com", "S:twitter.com", "S:twimg.com", "S:grok.com", "S:x.ai"],
+    android: ["com.twitter.android", "ai.x.grok"] },
+  { id: "github", name: "GitHub / Copilot", on: false, desc: "github.com、githubcopilot.com 等",
+    rules: ["S:github.com", "S:githubusercontent.com", "S:githubcopilot.com", "S:githubassets.com"] },
+];
+
+$("groups").innerHTML = GROUPS.map((g) =>
+  `<label class="grp"><input type="checkbox" data-g="${g.id}" ${g.on ? "checked" : ""}>
+   <span><b>${g.name}${g.on ? "" : '<span class="tag">可选</span>'}</b><small>${g.desc}</small></span></label>`).join("");
+document.querySelectorAll("[data-g]").forEach((c) => c.addEventListener("change", () => render()));
+$("custom").addEventListener("input", () => render());
+
+const RULE_TYPES = /^(DOMAIN|DOMAIN-SUFFIX|DOMAIN-KEYWORD|IP-CIDR|IP-CIDR6|IP-ASN|PROCESS-NAME|GEOIP|GEOSITE)$/i;
+function toRule(x) {
+  if (x.startsWith("S:")) return `DOMAIN-SUFFIX,${x.slice(2)},${EXIT}`;
+  if (x.startsWith("K:")) return `DOMAIN-KEYWORD,${x.slice(2)},${EXIT}`;
+  return x.replace("@", EXIT);
+}
+
+function selection() {
+  const on = new Set([...document.querySelectorAll("[data-g]:checked")].map((c) => c.dataset.g));
+  const common = [], android = [], bad = [];
+  // Claude 选中时才需要拒绝 Anthropic 的 IPv6
+  if (on.has("claude")) common.push("IP-CIDR6,2607:6bc0::/48,REJECT,no-resolve", "IP-CIDR6,2607:6bc0:11::/48,REJECT,no-resolve");
+  for (const g of GROUPS) if (on.has(g.id)) {
+    common.push(...g.rules.map(toRule));
+    android.push(...(g.android || []).map((p) => `PROCESS-NAME,${p},${EXIT}`));
+  }
+  for (let line of $("custom").value.split(/\n/)) {
+    line = line.trim().replace(/^https?:\/\//i, "").replace(/^\*\./, "").replace(/[\/\s].*$/, "");
+    if (!line || line.startsWith("#")) continue;
+    if (line.includes(",")) {
+      const parts = line.split(",").map((s) => s.trim());
+      if (!RULE_TYPES.test(parts[0]) || !parts[1]) { bad.push(line); continue; }
+      const r = [parts[0].toUpperCase(), parts[1], EXIT, ...(/^IP-|^GEOIP/i.test(parts[0]) ? ["no-resolve"] : [])].join(",");
+      (/^PROCESS-NAME$/i.test(parts[0]) ? android : common).push(r);
+    } else if (/^[a-z0-9-]+(\.[a-z0-9-]+)+$/i.test(line)) {
+      common.push(`DOMAIN-SUFFIX,${line.toLowerCase()},${EXIT}`);
+    } else bad.push(line);
+  }
+  const uniq = (a) => [...new Set(a)];
+  const isDefault = GROUPS.every((g) => on.has(g.id) === g.on) && !$("custom").value.trim();
+  return { common: uniq(common), android: uniq(android), bad, isDefault };
+}
+
+function build(v) {
+  const s = selection();
+  const rulesJs = "  const rules = [\n" + [...s.common, ...s.android].map((r) => "    " + yq(r) + ",").join("\n") + "\n  ];";
+  const android = tpl.android
+    .replace('type: "http",', "type: " + yq(v.proto) + ",")
+    .replace('server: "<HOST>"', "server: " + yq(v.host))
+    .replace(/port: 0,/, "port: " + v.port + ",")
+    .replace('username: "<USERNAME>"', "username: " + yq(v.user))
+    .replace('password: "<PASSWORD>"', "password: " + yq(v.pass))
+    .replace(/const SUFFIX = \[[\s\S]*?\];\n\nconst KEYWORD = [\s\S]*?;\n\nconst PROCESS = \[[\s\S]*?\];\n\n/, "")
+    .replace(/  const rules = \[[\s\S]*?\n  \];/, rulesJs);
+  // Clash Verge Rev 不认安卓的 PROCESS-NAME 包名规则，只放通用规则
+  const rulesWin = "  const rules = [\n" + s.common.map((r) => "    " + yq(r) + ",").join("\n") + "\n  ];";
+  const win = android
+    .replace(/  const rules = \[[\s\S]*?\n  \];/, rulesWin)
+    .replace("// homeport · FlClash 覆写脚本（FlClash ≥ 0.8.85）", "// homeport · Clash Verge Rev 扩展脚本 / Clash Party JavaScript 覆写")
+    .replace(/\n\/\/ Clash Verge Rev \/ Clash Party 也用这份脚本[^\n]*\n\/\/[^\n]*\n/, "\n")
+    .replace("// 改完以后别再从 URL 重新导入，否则会被占位符覆盖。\n", "")
+    .replace("const main = (config) => {", "function main(config, profileName) {")
+    .replace(/\n};\s*$/, "\n}\n");
+  const iostext = "#!name=homeport\n#!desc=选中的网站走备注为 🏠住宅出口-勿选 的住宅节点\n\n[Rule]\n" + s.common.join("\n") + "\n";
+  const b64 = btoa(unescape(encodeURIComponent(`${v.user}:${v.pass}@${v.host}:${v.port}`)));
+  const iosnode = `${v.proto === "socks5" ? "socks" : "http"}://${b64}?remarks=${encodeURIComponent(EXIT)}`;
+  return { mac: win, android, win, iosnode, iosmod: MODULE_URL, iostext, sel: s };
+}
+
+function setParsed(kind, html) {
+  $("parsed").className = "parsed " + kind;
+  $("status").innerHTML = html;
+}
+
+function renderSummary() {
+  const on = GROUPS.filter((g) => document.querySelector(`[data-g="${g.id}"]`).checked);
+  const n = $("custom").value.split(/\n/).filter((l) => l.trim() && !l.trim().startsWith("#")).length;
+  $("selSummary").innerHTML = on.map((g) => `<span class="chip">${g.name.replace(/（.*）/, "")}</span>`).join("") +
+    (n ? `<span class="chip">自定义 ${n} 条</span>` : "") + (on.length || n ? "" : '<span class="chip" style="color:var(--err);background:var(--err-soft)">一个都没选</span>');
+  return on.length + n;
+}
+
+function stepDone(i, ok) { $("st" + i).classList.toggle("done", !!ok); }
+
+function render() {
+  const nSel = renderSummary();
+  stepDone(2, nSel > 0);
+  const v = read();
+  document.querySelectorAll("[data-copy],[data-dl]").forEach((b) => {
+    b.disabled = !v && !["iosmod", "remark"].includes(b.dataset.copy);
+  });
+  stepDone(1, !!v);
+  stepDone(3, !!v && copiedOnce);
+  const isIP = v && /^\d+\.\d+\.\d+\.\d+$/.test(v.host);
+  $("ipWarn").classList.toggle("hidden", !(isIP && v.proto === "http"));
+  $("ipWarn").innerHTML = '⚠️ <b>HTTP 代理的地址一般是域名。</b>如果后台同时有代理地址和 Assigned IP（比如 Webshare 的 <code>p.webshare.io</code>），要填代理地址，填出口 IP 会一直超时。如果后台只给了这一个 IP（IP:端口 形式），那就没问题。';
+  if (!tpl.android) return;
+  if (!v) {
+    cur = null;
+    const any = ["host", "port", "user", "pass"].some((k) => $(k).value.trim());
+    const badPort = $("port").value.trim() && !/^\d+$/.test($("port").value.trim());
+    setParsed(badPort ? "bad" : "idle", badPort ? "✗ 端口只能是数字" : any ? "还差几项没填（地址、端口、用户名、密码都要有）" : "填好四项后，下面的按钮就能用了。");
+    $("pre-mac").textContent = $("pre-android").textContent = $("pre-win").textContent = "（先在第 1 步填写）";
+    $("qr").innerHTML = '<span style="color:#888;font-size:13px">填好后显示二维码</span>';
+    for (const k of ["host", "port", "user", "pass"]) $("m-" + k).textContent = k === "host" ? "（先填第 1 步）" : "-";
+    $("hostHint").textContent = "";
+    $("ruleStat").textContent = `共 ${selection().common.length} 条规则`;
+    renderCheck(null);
+    return;
+  }
+  cur = build(v);
+  setParsed("ok", `✓ 已填好：${v.proto.toUpperCase()} ${esc(v.host)}:${v.port}`);
+  $("m-type").textContent = v.proto === "socks5" ? "Socks5" : "HTTP";
+  $("pre-mac").textContent = cur.mac;
+  $("pre-android").textContent = cur.android;
+  $("pre-win").textContent = cur.win;
+  $("pre-ios").textContent = cur.iostext;
+  $("iosCustom").classList.toggle("hidden", cur.sel.isDefault);
+  $("ruleStat").innerHTML = `共 ${cur.sel.common.length} 条规则` + (cur.sel.android.length ? `（安卓另加 ${cur.sel.android.length} 条 App 规则）` : "") +
+    (cur.sel.bad.length ? `<br><span style="color:var(--err)">这几行没看懂，已忽略：${cur.sel.bad.map(esc).join("、")}</span>` : "");
+  $("m-host").textContent = v.host; $("m-port").textContent = v.port;
+  $("m-user").textContent = v.user; $("m-pass").textContent = v.pass;
+  $("hostHint").textContent = isIP ? `（一般就是 ${v.host}）` : "（服务商后台的 Assigned IP / 出口 IP）";
+  $("qr").innerHTML = "";
+  if (window.QRCode) new QRCode($("qr"), { text: cur.iosnode, width: 180, height: 180 });
+  else $("qr").textContent = "二维码组件没加载出来，请用方法 B 手动添加。";
+  renderCheck(v);
+}
+
+/* ---------- 设备 / 软件 ---------- */
+const APPS = {
+  mac: [["party", "Clash Party"], ["verge", "Clash Verge Rev"], ["sr", "小火箭"]],
+  win: [["verge", "Clash Verge Rev", "推荐"], ["party", "Clash Party"], ["v2rayn", "v2rayN"]],
+  ios: [["sr", "小火箭"]],
+  android: [["flclash", "FlClash"]],
+};
+const state = { dev: "mac", app: "party" };
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+};
+
+function pick(dev, app) {
+  state.dev = dev;
+  const list = APPS[dev];
+  state.app = list.some(([id]) => id === app) ? app : list[0][0];
+  store.set("hp-dev", state.dev); store.set("hp-app-" + dev, state.app);
+  document.querySelectorAll("[data-dev]").forEach((b) => b.setAttribute("aria-pressed", b.dataset.dev === dev));
+  $("apps").innerHTML = list.length > 1
+    ? '<span class="muted">你用的软件：</span>' + list.map(([id, name, tag]) =>
+      `<button class="app" data-app-btn="${id}" aria-pressed="${id === state.app}">${name}${tag ? `<small>${tag}</small>` : ""}</button>`).join("")
+    : "";
+  $("apps").querySelectorAll("[data-app-btn]").forEach((b) => b.addEventListener("click", () => pick(state.dev, b.dataset.appBtn)));
+  document.querySelectorAll("[data-app]").forEach((p) => p.classList.toggle("hidden", p.dataset.app !== state.app));
+  const os = dev === "win" ? "win" : dev === "mac" ? "mac" : "ios";
+  document.querySelectorAll("[data-os]").forEach((e) => e.classList.toggle("hidden", e.dataset.os !== os));
+  document.querySelectorAll("[data-dev-only]").forEach((e) => e.classList.toggle("hidden", !e.dataset.devOnly.split(" ").includes(dev)));
+  renderCheck(read());
+}
+
+function renderCheck(v) {
+  const port = state.app === "verge" ? 7897 : state.app === "party" ? 7890 : 0;
+  if (state.dev !== "mac" && state.dev !== "win") return;
+  if (state.app === "sr") {
+    $("termHint").textContent = "小火箭在 Mac 上是 VPN 模式，终端一般也会走。打开「终端」运行：";
+    $("termCmd").textContent = "curl https://ipv4.webshare.io/";
+  } else if (state.dev === "win") {
+    $("termHint").innerHTML = "打开 PowerShell 运行（注意是 <code>curl.exe</code>，不是 curl）：";
+    $("termCmd").textContent = `curl.exe -x http://127.0.0.1:${port || 7897} https://ipv4.webshare.io/`;
+  } else {
+    $("termHint").textContent = "打开「终端」运行：";
+    $("termCmd").textContent = `curl -x http://127.0.0.1:${port || 7890} https://ipv4.webshare.io/`;
+  }
+  if (port) $("termHint").innerHTML += ` <span class="muted">（${port} 是 ${state.app === "verge" ? "Clash Verge Rev" : "Clash Party"} 默认端口，改过的话以软件设置里为准）</span>`;
+}
+
+document.querySelectorAll("[data-dev]").forEach((b) => b.addEventListener("click", () => pick(b.dataset.dev, store.get("hp-app-" + b.dataset.dev))));
+document.querySelectorAll("[data-goapp]").forEach((b) => b.addEventListener("click", () => pick(state.dev, b.dataset.goapp)));
+
+/* ---------- 复制 / 下载 ---------- */
+function toast(t) {
+  $("toast").textContent = t; $("toast").classList.add("show");
+  clearTimeout(toast.t); toast.t = setTimeout(() => $("toast").classList.remove("show"), 2200);
+}
+document.querySelectorAll("[data-copy]").forEach((b) => b.addEventListener("click", async () => {
+  const k = b.dataset.copy;
+  const text = k === "iosmod" ? MODULE_URL : k === "remark" ? EXIT : cur && cur[k];
+  if (!text) return;
+  try { await navigator.clipboard.writeText(text); }
+  catch { const t = document.createElement("textarea"); t.value = text; document.body.appendChild(t); t.select(); document.execCommand("copy"); t.remove(); }
+  const old = b.dataset.label || (b.dataset.label = b.textContent);
+  b.textContent = "✓ 已复制"; b.classList.add("done");
+  setTimeout(() => { b.textContent = old; b.classList.remove("done"); }, 1800);
+  toast("已复制，去软件里粘贴吧");
+  if (!["remark"].includes(k)) { copiedOnce = true; stepDone(3, !!read()); }
+}));
+
+document.querySelectorAll("[data-dl]").forEach((b) => b.addEventListener("click", () => {
+  if (!cur) return;
+  const k = b.dataset.dl;
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([cur[k]], { type: "text/plain" }));
+  a.download = { mac: "homeport.js" }[k];
+  a.click();
+  copiedOnce = true; stepDone(3, !!read());
+}));
+
+/* ---------- 自动识别设备 ---------- */
+(function detect() {
+  const ua = navigator.userAgent;
+  const iPadOS = /Macintosh/.test(ua) && navigator.maxTouchPoints > 1; // iPad 的 Safari 默认伪装成 Mac
+  let dev = /iPhone|iPad|iPod/.test(ua) || iPadOS ? "ios" : /Android/i.test(ua) ? "android" : /Windows/i.test(ua) ? "win" : "mac";
+  const saved = store.get("hp-dev");
+  if (saved && APPS[saved]) dev = saved;
+  pick(dev, store.get("hp-app-" + dev));
+})();
+
+render();
+</script>
+</body>
+</html>
